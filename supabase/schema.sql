@@ -77,7 +77,12 @@ CREATE POLICY "Public can view mosques"
   ON public.mosques FOR SELECT 
   USING (true);
 
--- 2. Superadmin can perform all actions on mosques
+-- 2. Public and Authenticated users can insert new mosques (during registration / adding)
+CREATE POLICY "Allow public and authenticated to insert mosques" 
+  ON public.mosques FOR INSERT 
+  WITH CHECK (true);
+
+-- 3. Superadmin can perform all actions on mosques
 CREATE POLICY "Superadmin full access to mosques" 
   ON public.mosques FOR ALL 
   TO authenticated 
@@ -94,7 +99,7 @@ CREATE POLICY "Superadmin full access to mosques"
     )
   );
 
--- 3. Takmir can only UPDATE their assigned mosque
+-- 4. Takmir can only UPDATE their assigned mosque
 CREATE POLICY "Takmir can update own mosque" 
   ON public.mosques FOR UPDATE 
   TO authenticated 

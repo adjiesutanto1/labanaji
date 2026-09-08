@@ -6,7 +6,7 @@ import { getTodayStudies } from '@/lib/data/studies'
 import { MosqueCarousel } from '@/components/mosque-carousel'
 import { StudyGrid } from '@/components/study-grid'
 import { EmptyState } from '@/components/empty-state'
-import { Calendar, Sparkles, ArrowRight, ArrowUpRight, MapPin } from 'lucide-react'
+import { Calendar, Sparkles, ArrowRight, ArrowUpRight } from 'lucide-react'
 
 // Revalidate every 60 seconds
 export const revalidate = 60
@@ -16,14 +16,6 @@ export default async function HomePage() {
     getFeaturedMosques(6),
     getTodayStudies(6),
   ])
-
-  // Featured hero mosque visual (Masjid Agung Baiturrahman Banyuwangi)
-  const heroMosque = featuredMosques[0] || {
-    name: 'Masjid Agung Baiturrahman',
-    address: 'Banyuwangi',
-    image_url:
-      'https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=1200&q=80',
-  }
 
   return (
     <div className="space-y-10 sm:space-y-14 pb-16">
@@ -76,9 +68,9 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Right Column: Atmospheric Photograph Emerging & Dissolving into Cream Canvas */}
+          {/* Right Column: Atmospheric Photograph of Mosque Emerging & Dissolving into Cream Canvas */}
           <div className="lg:col-span-6 xl:col-span-7 relative w-full flex items-center justify-center lg:justify-end">
-            <div className="relative w-full h-[300px] sm:h-[380px] lg:h-[460px] xl:h-[500px]">
+            <div className="relative w-full h-[320px] sm:h-[400px] lg:h-[480px] xl:h-[520px]">
               {/* Soft Multi-Directional Gradient Feathers to Dissolve into Cream (#F6F1E8) */}
               <div className="pointer-events-none absolute inset-y-0 left-0 w-24 sm:w-44 bg-gradient-to-r from-[#F6F1E8] via-[#F6F1E8]/70 to-transparent z-10" />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 sm:h-32 bg-gradient-to-t from-[#F6F1E8] via-[#F6F1E8]/80 to-transparent z-10" />
@@ -87,7 +79,7 @@ export default async function HomePage() {
 
               {/* The Atmospheric Mosque Photo with Feathered Mask */}
               <div
-                className="relative w-full h-full overflow-hidden select-none"
+                className="relative w-full h-full overflow-hidden select-none rounded-3xl"
                 style={{
                   maskImage:
                     'radial-gradient(ellipse 92% 88% at 58% 48%, black 45%, rgba(0,0,0,0.85) 65%, rgba(0,0,0,0.2) 88%, transparent 100%)',
@@ -96,22 +88,13 @@ export default async function HomePage() {
                 }}
               >
                 <Image
-                  src={heroMosque.image_url}
-                  alt={`Keindahan ${heroMosque.name} Banyuwangi`}
+                  src="/images/hero-mosque.jpg"
+                  alt="Masjid di Banyuwangi"
                   fill
                   priority
-                  sizes="(max-width: 1024px) 100vw, 720px"
-                  className="object-cover object-[center_35%] opacity-95 brightness-[0.98] contrast-[0.98]"
+                  sizes="(max-width: 1024px) 100vw, 760px"
+                  className="object-cover object-[center_40%] opacity-95 brightness-[0.98] contrast-[0.98]"
                 />
-              </div>
-
-              {/* Subtle Floating Location Tag (Cream Pill) */}
-              <div className="absolute bottom-5 right-3 sm:bottom-7 sm:right-6 z-20">
-                <div className="inline-flex items-center gap-1.5 bg-[#FBF8F2]/90 backdrop-blur-xs px-3.5 py-1.5 rounded-full border border-[#DDD4C5]/80 shadow-2xs text-[11px] text-[#24332B]">
-                  <MapPin className="w-3 h-3 text-[#8A7965] shrink-0" />
-                  <span className="font-semibold line-clamp-1">{heroMosque.name}</span>
-                  <span className="text-[#8A7965] hidden sm:inline">· Banyuwangi</span>
-                </div>
               </div>
             </div>
           </div>

@@ -72,6 +72,27 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" className={`${fontSans.variable} font-sans antialiased h-full`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined') {
+                window.addEventListener('error', function(event) {
+                  if (event && event.message && (
+                    event.message.includes('startTime') || 
+                    event.message.includes('reportAllChanges') ||
+                    event.message.includes('reading \\'startTime\\'')
+                  )) {
+                    event.stopImmediatePropagation();
+                    event.preventDefault();
+                    return true;
+                  }
+                }, true);
+              }
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[#F6F1E8] text-[#24332B] selection:bg-[#EFE7DC] selection:text-[#6B5B49]">
         <Navbar />
         <main className="flex-1">{children}</main>

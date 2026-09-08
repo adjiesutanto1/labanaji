@@ -44,6 +44,8 @@ export function RegisterForm({ mosques }: RegisterFormProps) {
     if (res?.error) {
       setErrorMsg(res.error)
       setIsLoading(false)
+    } else if (res?.redirectUrl) {
+      window.location.href = res.redirectUrl
     }
   }
 
