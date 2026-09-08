@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import type { Profile, Mosque } from '@/lib/supabase/types'
-import { DEMO_MOSQUES } from '@/lib/data/demo-data'
 
 export interface AuthSessionData {
   authenticated: boolean
@@ -30,97 +29,56 @@ export interface AuthFormState {
  */
 export async function getCurrentUserAndProfile(): Promise<AuthSessionData | null> {
   try {
-    const cookieStore = await cookies()
     const supabase = await createServerSupabaseClient()
-    
-    if (supabase) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+    if (!supabase) return null
 
-      if (user) {
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select(`
-            *,
-            mosque:mosques(*)
-          `)
-          .eq('id', user.id)
-          .single()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-        if (profile) {
-          const profileData = profile as Profile & { mosque?: Mosque }
+    if (!user) return null
 
-          return {
-            authenticated: true,
-            user: {
-              id: user.id,
-              email: user.email || '',
-              name: profileData.name || user.user_metadata?.name || 'Takmir',
-            },
-            profile: profileData,
-            role: profileData.role,
-            mosqueId: profileData.mosque_id,
-            mosque: profileData.mosque || null,
-          }
-        }
-      }
-    }
+    // Fetch user profile joined with mosque
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        mosque:mosques(*)
+      `)
+      .eq('id', user.id)
+      .maybeSingle()
 
-    // Fallback Demo Session for Superadmin
-    const demoSuperadminCookie = cookieStore.get('labanaji_demo_superadmin')
-    if (demoSuperadminCookie?.value === 'true') {
-      const demoSuperProfile: Profile = {
-        id: 'demo-superadmin-1',
-        role: 'superadmin',
-        mosque_id: null,
-        name: 'Superadmin LABANAJI',
-        phone: '081299998888',
-      }
+    if (profile) {
+      const profileData = profile as Profile & { mosque?: Mosque }
 
       return {
         authenticated: true,
         user: {
-          id: 'demo-superadmin-1',
-          email: 'admin@labanaji.com',
-          name: 'Superadmin LABANAJI',
+          id: user.id,
+          email: user.email || '',
+          name: profileData.name || user.user_metadata?.name || 'Takmir',
         },
-        profile: demoSuperProfile,
-        role: 'superadmin',
-        mosqueId: null,
-        mosque: null,
+        profile: profileData,
+        role: profileData.role,
+        mosqueId: profileData.mosque_id,
+        mosque: profileData.mosque || null,
       }
     }
 
-    // Fallback Demo Session for Takmir
-    const demoTakmirCookie = cookieStore.get('labanaji_demo_takmir')
-    if (demoTakmirCookie?.value === 'true') {
-      const defaultMosque = DEMO_MOSQUES[0]
-      const demoProfile: Profile = {
-        id: 'demo-user-1',
-        role: 'takmir',
-        mosque_id: defaultMosque.id,
-        name: 'H. Ahmad Fauzi (Takmir Demo)',
-        phone: '081234567891',
-        mosque: defaultMosque,
-      }
-
-      return {
-        authenticated: true,
-        user: {
-          id: 'demo-user-1',
-          email: 'takmir@banyuwangi.id',
-          name: 'Takmir Masjid Baiturrahman',
-        },
-        profile: demoProfile,
-        role: 'takmir',
-        mosqueId: defaultMosque.id,
-        mosque: defaultMosque,
-      }
+    // If auth user exists but profile row is missing, check metadata
+    const userRole = (user.user_metadata?.role as 'superadmin' | 'takmir') || 'takmir'
+    return {
+      authenticated: true,
+      user: {
+        id: user.id,
+        email: user.email || '',
+        name: user.user_metadata?.name || 'Pengguna',
+      },
+      profile: null,
+      role: userRole,
+      mosqueId: null,
+      mosque: null,
     }
-
-    return null
   } catch (err) {
     console.error('Error in getCurrentUserAndProfile:', err)
     return null
@@ -151,151 +109,43 @@ export async function loginAction(
     return { error: 'Email dan kata sandi wajib diisi.' }
   }
 
-  let targetRedirect = '/takmir'
-  const cookieStore = await cookies()
-
   try {
-    // 1. Direct match for demo superadmin
-    if (
-      email === 'admin@labanaji.com' &&
-      (password === 'admin123' || password === 'admin' || password === 'superadmin')
-    ) {
-      cookieStore.set('labanaji_demo_superadmin', 'true', {
-        httpOnly: true,
-        path: '/',
-        maxAge: 60 * 60 * 24,
-      })
-      cookieStore.delete('labanaji_demo_takmir')
-      return { success: true, redirectUrl: '/superadmin' }
-    }
-
-    // 2. Direct match for demo takmir
-    if (
-      email === 'takmir@banyuwangi.id' &&
-      (password === 'takmir123' || password === 'takmir')
-    ) {
-      cookieStore.set('labanaji_demo_takmir', 'true', {
-        httpOnly: true,
-        path: '/',
-        maxAge: 60 * 60 * 24,
-      })
-      cookieStore.delete('labanaji_demo_superadmin')
-      return { success: true, redirectUrl: '/takmir' }
-    }
-
     const supabase = await createServerSupabaseClient()
-    if (supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        // If email is superadmin/admin, fallback to demo superadmin session
-        if (
-          email.toLowerCase().includes('admin') ||
-          email.toLowerCase().includes('superadmin')
-        ) {
-          cookieStore.set('labanaji_demo_superadmin', 'true', {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24,
-          })
-          cookieStore.delete('labanaji_demo_takmir')
-          return { success: true, redirectUrl: '/superadmin' }
-        }
-
-        if (error.message.includes('Invalid login credentials')) {
-          return { error: 'Email atau kata sandi tidak cocok. Silakan periksa kembali.' }
-        }
-        return { error: `Gagal masuk: ${error.message}` }
-      }
-
-      if (data?.user) {
-        // Query user profile
-        const { data: rawProfile, error: profileError } = await (supabase as any)
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profileError || !rawProfile) {
-          if (
-            email.toLowerCase().includes('admin') ||
-            email.toLowerCase().includes('superadmin')
-          ) {
-            cookieStore.set('labanaji_demo_superadmin', 'true', {
-              httpOnly: true,
-              path: '/',
-              maxAge: 60 * 60 * 24,
-            })
-            return { success: true, redirectUrl: '/superadmin' }
-          }
-          
-          // Auto-heal missing profile for Takmir
-          const defaultMosqueId = DEMO_MOSQUES[0].id
-          await (supabase as any).from('profiles').insert({
-            id: data.user.id,
-            role: 'takmir',
-            mosque_id: defaultMosqueId,
-            name: data.user.user_metadata?.name || 'Takmir Masjid',
-            phone: '08123456789',
-          })
-
-          cookieStore.set('labanaji_demo_takmir', 'true', {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24,
-          })
-          return { success: true, redirectUrl: '/takmir' }
-        }
-
-        const profile = rawProfile as Profile
-        const role = profile.role
-        if (role === 'superadmin') {
-          cookieStore.set('labanaji_demo_superadmin', 'true', {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24,
-          })
-          cookieStore.delete('labanaji_demo_takmir')
-          targetRedirect = '/superadmin'
-        } else {
-          cookieStore.set('labanaji_demo_takmir', 'true', {
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 60 * 24,
-          })
-          cookieStore.delete('labanaji_demo_superadmin')
-          targetRedirect = '/takmir'
-        }
-      }
-    } else {
-      // Local development without Supabase env keys
-      if (email.includes('superadmin') || email.includes('admin@labanaji.com')) {
-        cookieStore.set('labanaji_demo_superadmin', 'true', {
-          httpOnly: true,
-          path: '/',
-          maxAge: 60 * 60 * 24,
-        })
-        cookieStore.delete('labanaji_demo_takmir')
-        targetRedirect = '/superadmin'
-      } else {
-        cookieStore.set('labanaji_demo_takmir', 'true', {
-          httpOnly: true,
-          path: '/',
-          maxAge: 60 * 60 * 24,
-        })
-        cookieStore.delete('labanaji_demo_superadmin')
-        targetRedirect = '/takmir'
-      }
+    if (!supabase) {
+      return { error: 'Konfigurasi server database Supabase belum tersedia.' }
     }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        return { error: 'Email atau kata sandi tidak cocok. Silakan periksa kembali.' }
+      }
+      return { error: `Gagal masuk: ${error.message}` }
+    }
+
+    if (!data?.user) {
+      return { error: 'Gagal memverifikasi identitas pengguna.' }
+    }
+
+    // Query user profile
+    const { data: rawProfile } = await (supabase as any)
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .maybeSingle()
+
+    const role = rawProfile?.role || data.user.user_metadata?.role || 'takmir'
+    const targetRedirect = role === 'superadmin' ? '/superadmin' : '/takmir'
+
+    return { success: true, redirectUrl: targetRedirect }
   } catch (err) {
     console.error('Login action error:', err)
-    return { error: 'Terjadi gangguan koneksi atau sistem saat proses login.' }
+    return { error: 'Terjadi gangguan sistem saat proses login.' }
   }
-
-  return { success: true, redirectUrl: targetRedirect }
 }
 
 /**
@@ -314,9 +164,6 @@ export async function logoutTakmirAction() {
     if (supabase) {
       await supabase.auth.signOut()
     }
-    const cookieStore = await cookies()
-    cookieStore.delete('labanaji_demo_takmir')
-    cookieStore.delete('labanaji_demo_superadmin')
   } catch (err) {
     console.error('Logout error:', err)
   }
@@ -355,119 +202,102 @@ export async function registerTakmirAction(
     return { error: 'Konfirmasi kata sandi tidak cocok.' }
   }
 
-  let targetMosqueId = existingMosqueId
-  const cookieStore = await cookies()
-
-  if (mosqueType === 'new') {
-    if (!newMosqueName || !newMosqueAddress) {
-      return { error: 'Nama dan alamat masjid baru wajib diisi.' }
-    }
-  } else {
-    if (!existingMosqueId) {
-      targetMosqueId = DEMO_MOSQUES[0].id
-    }
+  if (mosqueType === 'new' && (!newMosqueName || !newMosqueAddress)) {
+    return { error: 'Nama dan alamat masjid baru wajib diisi.' }
   }
+
+  let targetMosqueId = existingMosqueId || null
 
   try {
     const supabase = await createServerSupabaseClient()
-    if (supabase) {
-      // 1. Create user in Supabase Auth first
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            role: 'takmir',
-          },
-        },
-      })
+    if (!supabase) {
+      return { error: 'Konfigurasi database belum tersedia.' }
+    }
 
-      if (authError) {
-        if (authError.message.includes('User already registered')) {
-          return { error: 'Email sudah terdaftar. Silakan gunakan email lain atau masuk di halaman login.' }
-        }
-        return { error: `Gagal mendaftar: ${authError.message}` }
-      }
+    // 1. Create new mosque if requested
+    if (mosqueType === 'new') {
+      const baseSlug = newMosqueName
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+      const uniqueSlug = `${baseSlug}-${Date.now().toString(36).substring(4)}`
 
-      if (!authData.user) {
-        return { error: 'Gagal membuat akun autentikasi.' }
-      }
-
-      // 2. Sign in to establish active session context
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      // 3. Create new mosque if requested
-      if (mosqueType === 'new') {
-        const baseSlug = newMosqueName
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/\s+/g, '-')
-        const uniqueSlug = `${baseSlug}-${Date.now().toString(36).substring(4)}`
-
-        const { data: newMosque, error: mosqueError } = await (supabase as any)
-          .from('mosques')
-          .insert({
-            name: newMosqueName,
-            slug: uniqueSlug,
-            address: newMosqueAddress,
-            takmir_name: name,
-            takmir_phone: phone,
-            image_url:
-              'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-          })
-          .select('id')
-          .single()
-
-        if (!mosqueError && newMosque) {
-          targetMosqueId = newMosque.id
-        } else {
-          console.warn('Mosque insert warning (RLS or DB):', mosqueError)
-          if (!targetMosqueId) {
-            targetMosqueId = DEMO_MOSQUES[0].id
-          }
-        }
-      }
-
-      // 4. Insert profile with strict role = 'takmir'
-      const { error: profileError } = await (supabase as any)
-        .from('profiles')
+      const { data: newMosque, error: mosqueError } = await (supabase as any)
+        .from('mosques')
         .insert({
+          name: newMosqueName,
+          slug: uniqueSlug,
+          address: newMosqueAddress,
+          takmir_name: name,
+          takmir_phone: phone,
+          image_url:
+            'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+        })
+        .select('id')
+        .single()
+
+      if (mosqueError) {
+        return { error: `Gagal mendaftarkan masjid: ${mosqueError.message}` }
+      }
+
+      if (newMosque) {
+        targetMosqueId = newMosque.id
+      }
+    }
+
+    // 2. Create user in Supabase Auth with complete metadata for auto-trigger
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          role: 'takmir',
+          phone,
+          mosque_id: targetMosqueId,
+        },
+      },
+    })
+
+    if (authError) {
+      if (authError.message.includes('User already registered')) {
+        return { error: 'Email sudah terdaftar. Silakan gunakan email lain atau masuk di halaman login.' }
+      }
+      return { error: `Gagal mendaftar: ${authError.message}` }
+    }
+
+    if (!authData.user) {
+      return { error: 'Gagal membuat akun autentikasi pengguna.' }
+    }
+
+    // 3. Sign in to establish active session
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    // 4. Ensure profile row is created / updated
+    const { error: profileError } = await (supabase as any)
+      .from('profiles')
+      .upsert(
+        {
           id: authData.user.id,
           role: 'takmir',
-          mosque_id: targetMosqueId || DEMO_MOSQUES[0].id,
+          mosque_id: targetMosqueId,
           name,
           phone,
-        })
+        },
+        { onConflict: 'id' }
+      )
 
-      if (profileError) {
-        console.warn('Profile insert warning (RLS or DB):', profileError)
-      }
-
-      // Set cookie session backup
-      cookieStore.set('labanaji_demo_takmir', 'true', {
-        httpOnly: true,
-        path: '/',
-        maxAge: 60 * 60 * 24,
-      })
-      cookieStore.delete('labanaji_demo_superadmin')
-    } else {
-      // Local development fallback
-      cookieStore.set('labanaji_demo_takmir', 'true', {
-        httpOnly: true,
-        path: '/',
-        maxAge: 60 * 60 * 24,
-      })
-      cookieStore.delete('labanaji_demo_superadmin')
+    if (profileError) {
+      console.error('Profile upsert error:', profileError)
+      return { error: `Gagal menyimpan data profil: ${profileError.message}` }
     }
+
+    return { success: true, redirectUrl: '/takmir' }
   } catch (err) {
     console.error('Registration error:', err)
     return { error: 'Terjadi gangguan sistem saat proses pendaftaran.' }
   }
-
-  return { success: true, redirectUrl: '/takmir' }
 }
-

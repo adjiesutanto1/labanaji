@@ -17,6 +17,7 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   ExternalLink,
   Upload,
@@ -35,11 +36,13 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({})
 
   // Edit Mosque Modal
   const [editingMosque, setEditingMosque] = useState<Mosque | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({})
 
   // Delete Mosque Modal
   const [deletingMosque, setDeletingMosque] = useState<Mosque | null>(null)
@@ -58,12 +61,72 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
     })
   }, [mosques, searchQuery])
 
+  const validateCreate = (formData: FormData): boolean => {
+    const newErrors: Record<string, string> = {}
+    const name = ((formData.get('name') as string) || '').trim()
+    const address = ((formData.get('address') as string) || '').trim()
+    const takmirPhone = ((formData.get('takmir_phone') as string) || '').trim()
+
+    if (!name) {
+      newErrors.name = 'Nama masjid wajib diisi.'
+    } else if (name.length < 3) {
+      newErrors.name = 'Nama masjid minimal 3 karakter.'
+    }
+
+    if (!address) {
+      newErrors.address = 'Alamat masjid wajib diisi.'
+    } else if (address.length < 5) {
+      newErrors.address = 'Alamat masjid minimal 5 karakter.'
+    }
+
+    if (!takmirPhone) {
+      newErrors.takmir_phone = 'Nomor WhatsApp / HP takmir wajib diisi.'
+    } else if (takmirPhone.length < 8) {
+      newErrors.takmir_phone = 'Nomor telepon minimal 8 digit.'
+    }
+
+    setCreateFieldErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const validateEdit = (formData: FormData): boolean => {
+    const newErrors: Record<string, string> = {}
+    const name = ((formData.get('name') as string) || '').trim()
+    const address = ((formData.get('address') as string) || '').trim()
+    const takmirPhone = ((formData.get('takmir_phone') as string) || '').trim()
+
+    if (!name) {
+      newErrors.name = 'Nama masjid wajib diisi.'
+    } else if (name.length < 3) {
+      newErrors.name = 'Nama masjid minimal 3 karakter.'
+    }
+
+    if (!address) {
+      newErrors.address = 'Alamat masjid wajib diisi.'
+    } else if (address.length < 5) {
+      newErrors.address = 'Alamat masjid minimal 5 karakter.'
+    }
+
+    if (!takmirPhone) {
+      newErrors.takmir_phone = 'Nomor WhatsApp / HP takmir wajib diisi.'
+    } else if (takmirPhone.length < 8) {
+      newErrors.takmir_phone = 'Nomor telepon minimal 8 digit.'
+    }
+
+    setEditFieldErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleCreateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setCreateLoading(true)
     setCreateError(null)
 
     const formData = new FormData(e.currentTarget)
+    if (!validateCreate(formData)) {
+      return
+    }
+
+    setCreateLoading(true)
     const res = await createMosqueAction({}, formData)
 
     if (res?.error) {
@@ -79,10 +142,14 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editingMosque) return
-    setEditLoading(true)
     setEditError(null)
 
     const formData = new FormData(e.currentTarget)
+    if (!validateEdit(formData)) {
+      return
+    }
+
+    setEditLoading(true)
     const res = await updateMosqueAction(editingMosque.id, {}, formData)
 
     if (res?.error) {
@@ -104,6 +171,7 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
       setMosques((prev) => prev.filter((m) => m.id !== deletingMosque.id))
       setDeleteLoading(false)
       setDeletingMosque(null)
+      window.location.reload()
     } else {
       setDeleteLoading(false)
       setDeletingMosque(null)
@@ -275,7 +343,7 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
               </div>
             )}
 
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
+            <form onSubmit={handleCreateSubmit} noValidate className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#24332B]">
                   Nama Lengkap Masjid <span className="text-[#8A7965]">*</span>
@@ -283,10 +351,28 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
                 <input
                   type="text"
                   name="name"
-                  required
                   placeholder="Contoh: Masjid Jami' Al-Hilal"
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965]"
+                  onChange={() => {
+                    if (createFieldErrors.name) {
+                      setCreateFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.name
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                    createFieldErrors.name
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965]'
+                  }`}
                 />
+                {createFieldErrors.name && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{createFieldErrors.name}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -295,11 +381,29 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
                 </label>
                 <textarea
                   name="address"
-                  required
                   rows={2}
                   placeholder="Jl. ..., Kelurahan/Desa ..., Kecamatan ..., Banyuwangi"
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-2xl text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965]"
+                  onChange={() => {
+                    if (createFieldErrors.address) {
+                      setCreateFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.address
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-2xl text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                    createFieldErrors.address
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965]'
+                  }`}
                 />
+                {createFieldErrors.address && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{createFieldErrors.address}</span>
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -322,10 +426,28 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
                   <input
                     type="tel"
                     name="takmir_phone"
-                    required
                     placeholder="081234567890"
-                    className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965]"
+                    onChange={() => {
+                      if (createFieldErrors.takmir_phone) {
+                        setCreateFieldErrors((prev) => {
+                          const copy = { ...prev }
+                          delete copy.takmir_phone
+                          return copy
+                        })
+                      }
+                    }}
+                    className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                      createFieldErrors.takmir_phone
+                        ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                        : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965]'
+                    }`}
                   />
+                  {createFieldErrors.takmir_phone && (
+                    <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{createFieldErrors.takmir_phone}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -398,7 +520,7 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
               </div>
             )}
 
-            <form onSubmit={handleEditSubmit} className="space-y-4">
+            <form onSubmit={handleEditSubmit} noValidate className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#24332B]">
                   Nama Lengkap Masjid <span className="text-[#8A7965]">*</span>
@@ -406,10 +528,28 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
                 <input
                   type="text"
                   name="name"
-                  required
                   defaultValue={editingMosque.name}
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965]"
+                  onChange={() => {
+                    if (editFieldErrors.name) {
+                      setEditFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.name
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                    editFieldErrors.name
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965]'
+                  }`}
                 />
+                {editFieldErrors.name && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editFieldErrors.name}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -418,11 +558,29 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
                 </label>
                 <textarea
                   name="address"
-                  required
                   rows={2}
                   defaultValue={editingMosque.address}
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-2xl text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965]"
+                  onChange={() => {
+                    if (editFieldErrors.address) {
+                      setEditFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.address
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-2xl text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                    editFieldErrors.address
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965]'
+                  }`}
                 />
+                {editFieldErrors.address && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editFieldErrors.address}</span>
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -445,10 +603,28 @@ export function SuperadminMosqueList({ initialMosques, studies }: SuperadminMosq
                   <input
                     type="tel"
                     name="takmir_phone"
-                    required
                     defaultValue={editingMosque.takmir_phone}
-                    className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965]"
+                    onChange={() => {
+                      if (editFieldErrors.takmir_phone) {
+                        setEditFieldErrors((prev) => {
+                          const copy = { ...prev }
+                          delete copy.takmir_phone
+                          return copy
+                        })
+                      }
+                    }}
+                    className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                      editFieldErrors.takmir_phone
+                        ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                        : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965]'
+                    }`}
                   />
+                  {editFieldErrors.takmir_phone && (
+                    <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{editFieldErrors.takmir_phone}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 

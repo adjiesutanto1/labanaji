@@ -40,13 +40,7 @@ export default async function TakmirDashboardPage() {
   const assignedMosque =
     session?.mosque ||
     (mosqueId ? await getMosqueById(mosqueId) : null) ||
-    mosques[0] || {
-      id: 'mosque-1',
-      name: 'Masjid Agung Baiturrahman',
-      address: 'Jl. Sudirman No. 1, Kepatihan',
-      takmir_phone: '081234567890',
-      image_url: '/images/baiturrahman.jpg',
-    }
+    (mosques.length > 0 ? mosques[0] : null)
 
   const defaultMosque = assignedMosque
 
@@ -162,48 +156,50 @@ export default async function TakmirDashboardPage() {
       </div>
 
       {/* Mosque Quick Preview Card */}
-      <div className="bg-[#FBF8F2] border border-[#DDD4C5] rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-        <div className="flex items-start sm:items-center gap-4">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#EEE6D8] overflow-hidden shrink-0 border border-[#DDD4C5]">
-            <Image
-              src={defaultMosque.image_url || '/images/baiturrahman.jpg'}
-              alt={defaultMosque.name}
-              fill
-              sizes="80px"
-              className="object-cover"
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#8A7965] bg-[#EFE7DC] px-2.5 py-0.5 rounded-full">
-              <Landmark className="w-3 h-3" />
-              <span>Masjid Anda</span>
+      {defaultMosque && (
+        <div className="bg-[#FBF8F2] border border-[#DDD4C5] rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#EEE6D8] overflow-hidden shrink-0 border border-[#DDD4C5]">
+              <Image
+                src={defaultMosque.image_url || '/images/default-mosque.jpg'}
+                alt={defaultMosque.name}
+                fill
+                sizes="80px"
+                className="object-cover"
+              />
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-[#24332B] leading-tight">
-              {defaultMosque.name}
-            </h2>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#5C6D62]">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-[#8A7965]" />
-                {defaultMosque.address}
-              </span>
-              {defaultMosque.takmir_phone && (
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#8A7965] bg-[#EFE7DC] px-2.5 py-0.5 rounded-full">
+                <Landmark className="w-3 h-3" />
+                <span>Masjid Anda</span>
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-[#24332B] leading-tight">
+                {defaultMosque.name}
+              </h2>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#5C6D62]">
                 <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-[#8A7965]" />
-                  {defaultMosque.takmir_phone}
+                  <MapPin className="w-3.5 h-3.5 text-[#8A7965]" />
+                  {defaultMosque.address}
                 </span>
-              )}
+                {defaultMosque.takmir_phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5 text-[#8A7965]" />
+                    {defaultMosque.takmir_phone}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <Link
-          href="/takmir/masjid"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-[#24332B] bg-[#EEE6D8] hover:bg-[#E7DED0] border border-[#DDD4C5] transition-colors self-end md:self-center shrink-0"
-        >
-          <span>Kelola Profil Masjid</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
+          <Link
+            href="/takmir/masjid"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-[#24332B] bg-[#EEE6D8] hover:bg-[#E7DED0] border border-[#DDD4C5] transition-colors self-end md:self-center shrink-0"
+          >
+            <span>Kelola Profil Masjid</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
 
       {/* Recent Studies Section */}
       <div className="space-y-4">

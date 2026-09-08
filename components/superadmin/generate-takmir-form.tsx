@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import Link from 'next/link'
 import type { Mosque } from '@/lib/supabase/types'
 import { createTakmirAccountAction } from '@/lib/actions/superadmin'
@@ -29,12 +29,15 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [generatedCredentials, setGeneratedCredentials] = useState<{
     name: string
     email: string
     mosqueName: string
     tempPassword?: string
   } | null>(null)
+
+  const formRef = useRef<HTMLFormElement>(null)
 
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#'
@@ -43,16 +46,74 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
       res += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     setPassword(res)
+    clearFieldError('password')
+  }
+
+  const validate = (formData: FormData): boolean => {
+    const newErrors: Record<string, string> = {}
+    const name = ((formData.get('name') as string) || '').trim()
+    const email = ((formData.get('email') as string) || '').trim()
+    const phone = ((formData.get('phone') as string) || '').trim()
+    const mosqueId = (formData.get('mosque_id') as string) || ''
+    const currentPass = password.trim()
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!name) {
+      newErrors.name = 'Nama lengkap pengurus takmir wajib diisi.'
+    } else if (name.length < 3) {
+      newErrors.name = 'Nama takmir minimal 3 karakter.'
+    }
+
+    if (!email) {
+      newErrors.email = 'Email login takmir wajib diisi.'
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = 'Format email tidak valid (contoh: takmir@chenghoo.id).'
+    }
+
+    if (!phone) {
+      newErrors.phone = 'Nomor WhatsApp / HP wajib diisi.'
+    } else if (phone.length < 8) {
+      newErrors.phone = 'Nomor telepon minimal 8 digit.'
+    }
+
+    if (!mosqueId && mosques.length > 0) {
+      newErrors.mosque_id = 'Pilih masjid yang ditugaskan.'
+    }
+
+    if (!currentPass) {
+      newErrors.password = 'Password sementara wajib diisi.'
+    } else if (currentPass.length < 6) {
+      newErrors.password = 'Password minimal 6 karakter.'
+    }
+
+    setErrors(newErrors)
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey = Object.keys(newErrors)[0]
+      const element = formRef.current?.querySelector(`[name="${firstKey}"]`) as HTMLElement | null
+      if (element) {
+        element.focus()
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return false
+    }
+
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
     setErrorMsg(null)
 
     const formData = new FormData(e.currentTarget)
     formData.set('password', password)
 
+    if (!validate(formData)) {
+      return
+    }
+
+    setIsLoading(true)
     const res = await createTakmirAccountAction(undefined, formData)
 
     if (res?.error) {
@@ -61,6 +122,16 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
     } else if (res?.credentials) {
       setGeneratedCredentials(res.credentials)
       setIsLoading(false)
+    }
+  }
+
+  const clearFieldError = (name: string) => {
+    if (errors[name]) {
+      setErrors((prev) => {
+        const copy = { ...prev }
+        delete copy[name]
+        return copy
+      })
     }
   }
 
@@ -147,7 +218,7 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[#FBF8F2] border border-[#DDD4C5] rounded-3xl p-6 sm:p-8 shadow-2xs space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="bg-[#FBF8F2] border border-[#DDD4C5] rounded-3xl p-6 sm:p-8 shadow-2xs space-y-6">
       {errorMsg && (
         <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -163,15 +234,27 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
             Nama Lengkap Pengurus Takmir <span className="text-[#8A7965]">*</span>
           </label>
           <div className="relative">
-            <User className="w-4 h-4 text-[#8A7965] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <User className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+              errors.name ? 'text-rose-500' : 'text-[#8A7965]'
+            }`} />
             <input
               type="text"
               name="name"
-              required
               placeholder="Contoh: Ust. Bambang Sutrisno"
-              className="w-full pl-10 pr-4 py-2.5 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white"
+              onChange={() => clearFieldError('name')}
+              className={`w-full pl-10 pr-4 py-2.5 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                errors.name
+                  ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                  : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+              }`}
             />
           </div>
+          {errors.name && (
+            <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.name}</span>
+            </p>
+          )}
         </div>
 
         {/* Email & Phone */}
@@ -181,15 +264,27 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
               Email Login <span className="text-[#8A7965]">*</span>
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-[#8A7965] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Mail className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                errors.email ? 'text-rose-500' : 'text-[#8A7965]'
+              }`} />
               <input
                 type="email"
                 name="email"
-                required
                 placeholder="takmir@chenghoo.id"
-                className="w-full pl-10 pr-4 py-2.5 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white"
+                onChange={() => clearFieldError('email')}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                  errors.email
+                    ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                    : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+                }`}
               />
             </div>
+            {errors.email && (
+              <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errors.email}</span>
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -197,15 +292,27 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
               Nomor WhatsApp / HP <span className="text-[#8A7965]">*</span>
             </label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-[#8A7965] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Phone className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                errors.phone ? 'text-rose-500' : 'text-[#8A7965]'
+              }`} />
               <input
                 type="tel"
                 name="phone"
-                required
                 placeholder="081398765432"
-                className="w-full pl-10 pr-4 py-2.5 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white"
+                onChange={() => clearFieldError('phone')}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                  errors.phone
+                    ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                    : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+                }`}
               />
             </div>
+            {errors.phone && (
+              <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errors.phone}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -218,10 +325,17 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
             <Landmark className="w-4 h-4 text-[#8A7965] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               name="mosque_id"
-              required
               defaultValue={mosques[0]?.id || ''}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white appearance-none"
+              onChange={() => clearFieldError('mosque_id')}
+              className={`w-full pl-10 pr-4 py-2.5 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none appearance-none transition-all ${
+                errors.mosque_id
+                  ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500'
+                  : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+              }`}
             >
+              {mosques.length === 0 && (
+                <option value="">-- Belum ada masjid terdaftar --</option>
+              )}
               {mosques.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name} ({m.address.split(',')[0]})
@@ -229,6 +343,12 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
               ))}
             </select>
           </div>
+          {errors.mosque_id && (
+            <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.mosque_id}</span>
+            </p>
+          )}
         </div>
 
         {/* Password Generator */}
@@ -247,16 +367,31 @@ export function GenerateTakmirForm({ mosques }: GenerateTakmirFormProps) {
             </button>
           </div>
           <div className="relative">
-            <KeyRound className="w-4 h-4 text-[#8A7965] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <KeyRound className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+              errors.password ? 'text-rose-500' : 'text-[#8A7965]'
+            }`} />
             <input
               type="text"
+              name="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              onChange={(e) => {
+                setPassword(e.target.value)
+                clearFieldError('password')
+              }}
               placeholder="Minimal 6 karakter"
-              className="w-full pl-10 pr-4 py-2.5 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm font-mono text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white"
+              className={`w-full pl-10 pr-4 py-2.5 rounded-full text-xs sm:text-sm font-mono text-[#24332B] focus:outline-none transition-all ${
+                errors.password
+                  ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 text-rose-900'
+                  : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+              }`}
             />
           </div>
+          {errors.password && (
+            <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.password}</span>
+            </p>
+          )}
           <p className="text-[11px] text-[#5C6D62]">
             Password ini akan langsung aktif dan dapat diubah oleh Takmir setelah login.
           </p>

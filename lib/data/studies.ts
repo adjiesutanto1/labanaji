@@ -1,6 +1,5 @@
 import { Study } from '@/lib/supabase/types'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getInitialDemoStudies, DEMO_MOSQUES } from './demo-data'
 import { getTodayDateString } from '@/lib/utils'
 
 export async function getTodayStudies(limit: number = 6): Promise<Study[]> {
@@ -9,8 +8,7 @@ export async function getTodayStudies(limit: number = 6): Promise<Study[]> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      const demoList = getInitialDemoStudies()
-      return demoList.filter((s) => s.study_date === today).slice(0, limit)
+      return []
     }
 
     const { data, error } = await supabase
@@ -23,16 +21,14 @@ export async function getTodayStudies(limit: number = 6): Promise<Study[]> {
       .order('start_time', { ascending: true })
       .limit(limit)
 
-    if (error || !data || data.length === 0) {
-      const demoList = getInitialDemoStudies()
-      return demoList.filter((s) => s.study_date === today).slice(0, limit)
+    if (error || !data) {
+      return []
     }
 
     return data as Study[]
   } catch (err) {
     console.error('Error fetching today studies:', err)
-    const demoList = getInitialDemoStudies()
-    return demoList.filter((s) => s.study_date === today).slice(0, limit)
+    return []
   }
 }
 
@@ -42,8 +38,7 @@ export async function getUpcomingStudies(limit: number = 6): Promise<Study[]> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      const demoList = getInitialDemoStudies()
-      return demoList.filter((s) => s.study_date > today).slice(0, limit)
+      return []
     }
 
     const { data, error } = await supabase
@@ -57,16 +52,14 @@ export async function getUpcomingStudies(limit: number = 6): Promise<Study[]> {
       .order('start_time', { ascending: true })
       .limit(limit)
 
-    if (error || !data || data.length === 0) {
-      const demoList = getInitialDemoStudies()
-      return demoList.filter((s) => s.study_date > today).slice(0, limit)
+    if (error || !data) {
+      return []
     }
 
     return data as Study[]
   } catch (err) {
     console.error('Error fetching upcoming studies:', err)
-    const demoList = getInitialDemoStudies()
-    return demoList.filter((s) => s.study_date > today).slice(0, limit)
+    return []
   }
 }
 
@@ -78,6 +71,8 @@ export interface GetStudiesParams {
   page?: number
   pageSize?: number
 }
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function getStudies(params: GetStudiesParams = {}): Promise<{
   studies: Study[]
@@ -97,7 +92,12 @@ export async function getStudies(params: GetStudiesParams = {}): Promise<{
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      return getDemoStudiesFiltered(params)
+      return {
+        studies: [],
+        totalCount: 0,
+        page: 1,
+        totalPages: 1,
+      }
     }
 
     let baseQuery = supabase
@@ -115,7 +115,16 @@ export async function getStudies(params: GetStudiesParams = {}): Promise<{
     }
 
     if (mosqueId) {
-      baseQuery = baseQuery.eq('mosque_id', mosqueId)
+      if (UUID_REGEX.test(mosqueId)) {
+        baseQuery = baseQuery.eq('mosque_id', mosqueId)
+      } else {
+        return {
+          studies: [],
+          totalCount: 0,
+          page: 1,
+          totalPages: 1,
+        }
+      }
     }
 
     if (query) {
@@ -131,7 +140,12 @@ export async function getStudies(params: GetStudiesParams = {}): Promise<{
       .range(from, to)
 
     if (error || !data) {
-      return getDemoStudiesFiltered(params)
+      return {
+        studies: [],
+        totalCount: 0,
+        page: 1,
+        totalPages: 1,
+      }
     }
 
     // Filter by mosqueSlug if requested and not matched by mosqueId
@@ -149,53 +163,12 @@ export async function getStudies(params: GetStudiesParams = {}): Promise<{
     }
   } catch (err) {
     console.error('Error in getStudies:', err)
-    return getDemoStudiesFiltered(params)
-  }
-}
-
-function getDemoStudiesFiltered(params: GetStudiesParams) {
-  const {
-    query = '',
-    date = '',
-    mosqueSlug = '',
-    mosqueId = '',
-    page = 1,
-    pageSize = 9,
-  } = params
-
-  let list = getInitialDemoStudies()
-
-  if (date) {
-    list = list.filter((s) => s.study_date === date)
-  }
-
-  if (mosqueId) {
-    list = list.filter((s) => s.mosque_id === mosqueId)
-  }
-
-  if (mosqueSlug) {
-    list = list.filter((s) => s.mosque?.slug === mosqueSlug)
-  }
-
-  if (query) {
-    const q = query.toLowerCase()
-    list = list.filter(
-      (s) =>
-        s.title.toLowerCase().includes(q) ||
-        s.speaker.toLowerCase().includes(q) ||
-        s.mosque?.name.toLowerCase().includes(q)
-    )
-  }
-
-  const total = list.length
-  const from = (page - 1) * pageSize
-  const paged = list.slice(from, from + pageSize)
-
-  return {
-    studies: paged,
-    totalCount: total,
-    page,
-    totalPages: Math.ceil(total / pageSize) || 1,
+    return {
+      studies: [],
+      totalCount: 0,
+      page: 1,
+      totalPages: 1,
+    }
   }
 }
 
@@ -203,8 +176,7 @@ export async function getStudyBySlug(slug: string): Promise<Study | null> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      const demoList = getInitialDemoStudies()
-      return demoList.find((s) => s.slug === slug) || null
+      return null
     }
 
     const { data, error } = await supabase
@@ -214,27 +186,24 @@ export async function getStudyBySlug(slug: string): Promise<Study | null> {
         mosque:mosques(*)
       `)
       .eq('slug', slug)
-      .single()
+      .maybeSingle()
 
     if (error || !data) {
-      const demoList = getInitialDemoStudies()
-      return demoList.find((s) => s.slug === slug) || null
+      return null
     }
 
     return data as Study
   } catch (err) {
     console.error('Error in getStudyBySlug:', err)
-    const demoList = getInitialDemoStudies()
-    return demoList.find((s) => s.slug === slug) || null
+    return null
   }
 }
 
 export async function getStudiesByMosque(mosqueId: string): Promise<Study[]> {
   try {
     const supabase = await createServerSupabaseClient()
-    if (!supabase) {
-      const demoList = getInitialDemoStudies()
-      return demoList.filter((s) => s.mosque_id === mosqueId)
+    if (!supabase || !UUID_REGEX.test(mosqueId)) {
+      return []
     }
 
     const { data, error } = await supabase
@@ -248,14 +217,12 @@ export async function getStudiesByMosque(mosqueId: string): Promise<Study[]> {
       .order('start_time', { ascending: true })
 
     if (error || !data) {
-      const demoList = getInitialDemoStudies()
-      return demoList.filter((s) => s.mosque_id === mosqueId)
+      return []
     }
 
     return data as Study[]
   } catch (err) {
     console.error('Error in getStudiesByMosque:', err)
-    const demoList = getInitialDemoStudies()
-    return demoList.filter((s) => s.mosque_id === mosqueId)
+    return []
   }
 }

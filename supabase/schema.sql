@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles (role);
 CREATE INDEX IF NOT EXISTS idx_profiles_mosque_id ON public.profiles (mosque_id);
 
 -- ==========================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS) POLICIES & HELPER FUNCTIONS
 -- ==========================================================
 
 -- Enable RLS on all private tables
@@ -70,175 +70,108 @@ ALTER TABLE public.studies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- ----------------------------------------------------------
--- A. MOSQUES POLICIES
+-- SECURITY DEFINER HELPER FUNCTIONS (Avoid RLS Recursion)
 -- ----------------------------------------------------------
--- 1. Public can read all mosques
-CREATE POLICY "Public can view mosques" 
-  ON public.mosques FOR SELECT 
+CREATE OR REPLACE FUNCTION public.get_auth_role()
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid() LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_auth_mosque_id()
+RETURNS uuid
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT mosque_id FROM public.profiles WHERE id = auth.uid() LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_superadmin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT COALESCE(
+    (SELECT role = 'superadmin' FROM public.profiles WHERE id = auth.uid() LIMIT 1),
+    false
+  );
+$$;
+
+-- ----------------------------------------------------------
+-- A. PROFILES POLICIES
+-- ----------------------------------------------------------
+CREATE POLICY "Allow users and superadmin to view profiles"
+  ON public.profiles FOR SELECT
   USING (true);
 
--- 2. Public and Authenticated users can insert new mosques (during registration / adding)
-CREATE POLICY "Allow public and authenticated to insert mosques" 
-  ON public.mosques FOR INSERT 
+CREATE POLICY "Allow users to insert profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (id = auth.uid() OR public.is_superadmin() OR auth.uid() IS NULL);
+
+CREATE POLICY "Allow users to update own profile or superadmin"
+  ON public.profiles FOR UPDATE
+  USING (id = auth.uid() OR public.is_superadmin())
+  WITH CHECK (id = auth.uid() OR public.is_superadmin());
+
+CREATE POLICY "Allow superadmin to delete profiles"
+  ON public.profiles FOR DELETE
+  USING (public.is_superadmin());
+
+-- ----------------------------------------------------------
+-- B. MOSQUES POLICIES
+-- ----------------------------------------------------------
+CREATE POLICY "Public can view mosques"
+  ON public.mosques FOR SELECT
+  USING (true);
+
+CREATE POLICY "Public and authenticated can insert mosques"
+  ON public.mosques FOR INSERT
   WITH CHECK (true);
 
--- 3. Superadmin can perform all actions on mosques
-CREATE POLICY "Superadmin full access to mosques" 
-  ON public.mosques FOR ALL 
-  TO authenticated 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'superadmin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'superadmin'
-    )
-  );
+CREATE POLICY "Superadmin or assigned takmir can update mosque"
+  ON public.mosques FOR UPDATE
+  USING (public.is_superadmin() OR (public.get_auth_role() = 'takmir' AND id = public.get_auth_mosque_id()))
+  WITH CHECK (public.is_superadmin() OR (public.get_auth_role() = 'takmir' AND id = public.get_auth_mosque_id()));
 
--- 4. Takmir can only UPDATE their assigned mosque
-CREATE POLICY "Takmir can update own mosque" 
-  ON public.mosques FOR UPDATE 
-  TO authenticated 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'takmir' 
-      AND profiles.mosque_id = mosques.id
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'takmir' 
-      AND profiles.mosque_id = mosques.id
-    )
-  );
+CREATE POLICY "Superadmin can delete mosques"
+  ON public.mosques FOR DELETE
+  USING (public.is_superadmin());
 
 -- ----------------------------------------------------------
--- B. STUDIES POLICIES
+-- C. STUDIES POLICIES
 -- ----------------------------------------------------------
--- 1. Public can view all studies
-CREATE POLICY "Public can view studies" 
-  ON public.studies FOR SELECT 
+CREATE POLICY "Public can view studies"
+  ON public.studies FOR SELECT
   USING (true);
 
--- 2. Superadmin can perform all actions on studies
-CREATE POLICY "Superadmin full access to studies" 
-  ON public.studies FOR ALL 
-  TO authenticated 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'superadmin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'superadmin'
-    )
-  );
+CREATE POLICY "Superadmin or takmir can insert studies"
+  ON public.studies FOR INSERT
+  WITH CHECK (public.is_superadmin() OR (public.get_auth_role() = 'takmir' AND (mosque_id = public.get_auth_mosque_id() OR public.get_auth_mosque_id() IS NULL)));
 
--- 3. Takmir can INSERT studies only for their assigned mosque
-CREATE POLICY "Takmir can insert studies for own mosque" 
-  ON public.studies FOR INSERT 
-  TO authenticated 
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'takmir' 
-      AND profiles.mosque_id = studies.mosque_id
-    )
-  );
+CREATE POLICY "Superadmin or takmir can update studies"
+  ON public.studies FOR UPDATE
+  USING (public.is_superadmin() OR (public.get_auth_role() = 'takmir' AND (mosque_id = public.get_auth_mosque_id() OR public.get_auth_mosque_id() IS NULL)))
+  WITH CHECK (public.is_superadmin() OR (public.get_auth_role() = 'takmir' AND (mosque_id = public.get_auth_mosque_id() OR public.get_auth_mosque_id() IS NULL)));
 
--- 4. Takmir can UPDATE studies only for their assigned mosque
-CREATE POLICY "Takmir can update studies for own mosque" 
-  ON public.studies FOR UPDATE 
-  TO authenticated 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'takmir' 
-      AND profiles.mosque_id = studies.mosque_id
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'takmir' 
-      AND profiles.mosque_id = studies.mosque_id
-    )
-  );
-
--- 5. Takmir can DELETE studies only for their assigned mosque
-CREATE POLICY "Takmir can delete studies for own mosque" 
-  ON public.studies FOR DELETE 
-  TO authenticated 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'takmir' 
-      AND profiles.mosque_id = studies.mosque_id
-    )
-  );
+CREATE POLICY "Superadmin or takmir can delete studies"
+  ON public.studies FOR DELETE
+  USING (public.is_superadmin() OR (public.get_auth_role() = 'takmir' AND (mosque_id = public.get_auth_mosque_id() OR public.get_auth_mosque_id() IS NULL)));
 
 -- ----------------------------------------------------------
--- C. PROFILES POLICIES
+-- D. SUPABASE STORAGE BUCKET CONFIGURATION
 -- ----------------------------------------------------------
--- 1. Users can view their own profile
-CREATE POLICY "Users can view own profile" 
-  ON public.profiles FOR SELECT 
-  TO authenticated 
-  USING (id = auth.uid());
-
--- 2. Superadmin can view and manage all profiles
-CREATE POLICY "Superadmin full access to profiles" 
-  ON public.profiles FOR ALL 
-  TO authenticated 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'superadmin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE profiles.id = auth.uid() AND profiles.role = 'superadmin'
-    )
-  );
-
--- 3. Takmir can only update their own name and phone (role and mosque_id are protected)
-CREATE POLICY "Takmir can update own contact info" 
-  ON public.profiles FOR UPDATE 
-  TO authenticated 
-  USING (id = auth.uid())
-  WITH CHECK (
-    id = auth.uid() 
-    AND role = (SELECT role FROM public.profiles WHERE id = auth.uid())
-    AND (
-      mosque_id IS NOT DISTINCT FROM (SELECT mosque_id FROM public.profiles WHERE id = auth.uid())
-    )
-  );
-
--- ==========================================================
--- SUPABASE STORAGE BUCKET CONFIGURATION
--- ==========================================================
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('study-posters', 'study-posters', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Storage Policies:
 CREATE POLICY "Public can view study posters" 
   ON storage.objects FOR SELECT 
   USING (bucket_id = 'study-posters');

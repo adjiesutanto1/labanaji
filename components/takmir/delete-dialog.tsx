@@ -15,9 +15,15 @@ export function DeleteDialog({ studyId, studyTitle }: DeleteDialogProps) {
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true)
-    await deleteStudyAction(studyId)
-    setIsDeleting(false)
-    setIsOpen(false)
+    const res = await deleteStudyAction(studyId)
+    if (res?.error) {
+      alert(res.error)
+      setIsDeleting(false)
+    } else {
+      setIsDeleting(false)
+      setIsOpen(false)
+      window.location.reload()
+    }
   }
 
   return (

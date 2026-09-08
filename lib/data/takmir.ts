@@ -12,7 +12,7 @@ export async function getTakmirProfiles(): Promise<TakmirWithMosque[]> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      return getDemoTakmirProfiles()
+      return []
     }
 
     const { data: profiles, error } = await (supabase as any)
@@ -24,14 +24,14 @@ export async function getTakmirProfiles(): Promise<TakmirWithMosque[]> {
       .eq('role', 'takmir')
       .order('created_at', { ascending: false })
 
-    if (error || !profiles || profiles.length === 0) {
-      return getDemoTakmirProfiles()
+    if (error || !profiles) {
+      return []
     }
 
     return profiles as TakmirWithMosque[]
   } catch (err) {
     console.error('Error fetching takmir profiles:', err)
-    return getDemoTakmirProfiles()
+    return []
   }
 }
 
@@ -39,8 +39,7 @@ export async function getTakmirProfileById(id: string): Promise<TakmirWithMosque
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      const demo = getDemoTakmirProfiles()
-      return demo.find((t) => t.id === id) || null
+      return null
     }
 
     const { data: profile, error } = await (supabase as any)
@@ -50,30 +49,15 @@ export async function getTakmirProfileById(id: string): Promise<TakmirWithMosque
         mosque:mosques(*)
       `)
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (error || !profile) {
-      const demo = getDemoTakmirProfiles()
-      return demo.find((t) => t.id === id) || null
+      return null
     }
 
     return profile as TakmirWithMosque
   } catch (err) {
     console.error('Error fetching takmir profile by id:', err)
-    const demo = getDemoTakmirProfiles()
-    return demo.find((t) => t.id === id) || null
+    return null
   }
-}
-
-function getDemoTakmirProfiles(): TakmirWithMosque[] {
-  return DEMO_MOSQUES.map((mosque, idx) => ({
-    id: `takmir-${idx + 1}`,
-    role: 'takmir',
-    mosque_id: mosque.id,
-    name: mosque.takmir_name,
-    phone: mosque.takmir_phone,
-    email: `takmir.${mosque.slug.substring(0, 15)}@banyuwangi.id`,
-    created_at: new Date(Date.now() - idx * 86400000 * 7).toISOString(),
-    mosque,
-  }))
 }

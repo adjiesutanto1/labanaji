@@ -17,6 +17,7 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   ShieldCheck,
   Building2,
@@ -35,6 +36,7 @@ export function SuperadminTakmirList({ initialTakmirs, mosques }: SuperadminTakm
   const [editingTakmir, setEditingTakmir] = useState<TakmirWithMosque | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({})
 
   // Delete Modal State
   const [deletingTakmir, setDeletingTakmir] = useState<TakmirWithMosque | null>(null)
@@ -54,13 +56,43 @@ export function SuperadminTakmirList({ initialTakmirs, mosques }: SuperadminTakm
     })
   }, [selectedTakmirs, searchQuery])
 
+  const validateEdit = (formData: FormData): boolean => {
+    const newErrors: Record<string, string> = {}
+    const name = ((formData.get('name') as string) || '').trim()
+    const phone = ((formData.get('phone') as string) || '').trim()
+    const mosqueId = (formData.get('mosque_id') as string) || ''
+
+    if (!name) {
+      newErrors.name = 'Nama takmir wajib diisi.'
+    } else if (name.length < 3) {
+      newErrors.name = 'Nama takmir minimal 3 karakter.'
+    }
+
+    if (!phone) {
+      newErrors.phone = 'Nomor WhatsApp / HP wajib diisi.'
+    } else if (phone.length < 8) {
+      newErrors.phone = 'Nomor telepon minimal 8 digit.'
+    }
+
+    if (!mosqueId && mosques.length > 0) {
+      newErrors.mosque_id = 'Pilih masjid yang ditugaskan.'
+    }
+
+    setEditFieldErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editingTakmir) return
-    setEditLoading(true)
     setEditError(null)
 
     const formData = new FormData(e.currentTarget)
+    if (!validateEdit(formData)) {
+      return
+    }
+
+    setEditLoading(true)
     const res = await updateTakmirAction(editingTakmir.id, undefined, formData)
 
     if (res?.error) {
@@ -99,6 +131,7 @@ export function SuperadminTakmirList({ initialTakmirs, mosques }: SuperadminTakm
       setSelectedTakmirs((prev) => prev.filter((t) => t.id !== deletingTakmir.id))
       setDeleteLoading(false)
       setDeletingTakmir(null)
+      window.location.reload()
     } else {
       setDeleteLoading(false)
       setDeletingTakmir(null)
@@ -364,42 +397,90 @@ export function SuperadminTakmirList({ initialTakmirs, mosques }: SuperadminTakm
               </div>
             )}
 
-            <form onSubmit={handleEditSubmit} className="space-y-4">
+            <form onSubmit={handleEditSubmit} noValidate className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#24332B]">
-                  Nama Lengkap Takmir
+                  Nama Lengkap Takmir <span className="text-[#8A7965]">*</span>
                 </label>
                 <input
                   type="text"
                   name="name"
-                  required
                   defaultValue={editingTakmir.name}
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white"
+                  onChange={() => {
+                    if (editFieldErrors.name) {
+                      setEditFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.name
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                    editFieldErrors.name
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+                  }`}
                 />
+                {editFieldErrors.name && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editFieldErrors.name}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#24332B]">
-                  Nomor WhatsApp / HP
+                  Nomor WhatsApp / HP <span className="text-[#8A7965]">*</span>
                 </label>
                 <input
                   type="tel"
                   name="phone"
-                  required
                   defaultValue={editingTakmir.phone || ''}
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white"
+                  onChange={() => {
+                    if (editFieldErrors.phone) {
+                      setEditFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.phone
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none transition-all ${
+                    editFieldErrors.phone
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500 focus:ring-rose-500 text-rose-900'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+                  }`}
                 />
+                {editFieldErrors.phone && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editFieldErrors.phone}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-[#24332B]">
-                  Masjid yang Ditugaskan
+                  Masjid yang Ditugaskan <span className="text-[#8A7965]">*</span>
                 </label>
                 <select
                   name="mosque_id"
-                  required
                   defaultValue={editingTakmir.mosque_id || mosques[0]?.id || ''}
-                  className="w-full px-4 py-2 bg-[#EEE6D8] border border-[#DDD4C5] rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none focus:ring-1 focus:ring-[#8A7965] focus:bg-white appearance-none"
+                  onChange={() => {
+                    if (editFieldErrors.mosque_id) {
+                      setEditFieldErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.mosque_id
+                        return copy
+                      })
+                    }
+                  }}
+                  className={`w-full px-4 py-2 rounded-full text-xs sm:text-sm text-[#24332B] focus:outline-none appearance-none transition-all ${
+                    editFieldErrors.mosque_id
+                      ? 'bg-rose-50 border border-rose-500 ring-1 ring-rose-500'
+                      : 'bg-[#EEE6D8] border border-[#DDD4C5] focus:ring-1 focus:ring-[#8A7965] focus:bg-white'
+                  }`}
                 >
                   {mosques.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -407,6 +488,12 @@ export function SuperadminTakmirList({ initialTakmirs, mosques }: SuperadminTakm
                     </option>
                   ))}
                 </select>
+                {editFieldErrors.mosque_id && (
+                  <p className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{editFieldErrors.mosque_id}</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#DDD4C5]/60">

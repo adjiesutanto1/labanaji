@@ -6,7 +6,7 @@ export async function getMosques(): Promise<Mosque[]> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      return DEMO_MOSQUES
+      return []
     }
 
     const { data, error } = await supabase
@@ -14,14 +14,14 @@ export async function getMosques(): Promise<Mosque[]> {
       .select('*')
       .order('name', { ascending: true })
 
-    if (error || !data || data.length === 0) {
-      return DEMO_MOSQUES
+    if (error || !data) {
+      return []
     }
 
     return data as Mosque[]
   } catch (err) {
     console.error('Error fetching mosques:', err)
-    return DEMO_MOSQUES
+    return []
   }
 }
 
@@ -34,23 +34,23 @@ export async function getMosqueBySlug(slug: string): Promise<Mosque | null> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      return DEMO_MOSQUES.find((m) => m.slug === slug) || null
+      return null
     }
 
     const { data, error } = await supabase
       .from('mosques')
       .select('*')
       .eq('slug', slug)
-      .single()
+      .maybeSingle()
 
     if (error || !data) {
-      return DEMO_MOSQUES.find((m) => m.slug === slug) || null
+      return null
     }
 
     return data as Mosque
   } catch (err) {
     console.error('Error fetching mosque by slug:', err)
-    return DEMO_MOSQUES.find((m) => m.slug === slug) || null
+    return null
   }
 }
 
@@ -58,22 +58,22 @@ export async function getMosqueById(id: string): Promise<Mosque | null> {
   try {
     const supabase = await createServerSupabaseClient()
     if (!supabase) {
-      return DEMO_MOSQUES.find((m) => m.id === id) || null
+      return null
     }
 
     const { data, error } = await supabase
       .from('mosques')
       .select('*')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     if (error || !data) {
-      return DEMO_MOSQUES.find((m) => m.id === id) || null
+      return null
     }
 
     return data as Mosque
   } catch (err) {
     console.error('Error fetching mosque by id:', err)
-    return DEMO_MOSQUES.find((m) => m.id === id) || null
+    return null
   }
 }

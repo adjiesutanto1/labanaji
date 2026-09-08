@@ -18,18 +18,7 @@ export default async function TakmirMasjidPage() {
   const defaultMosque =
     session?.mosque ||
     (mosqueId ? await getMosqueById(mosqueId) : null) ||
-    mosques[0] || {
-      id: 'mosque-1',
-      name: 'Masjid Agung Baiturrahman',
-      slug: 'masjid-agung-baiturrahman',
-      address: 'Jl. Jenderal Sudirman No. 1, Temenggungan, Kec. Banyuwangi, Kabupaten Banyuwangi',
-      latitude: null,
-      longitude: null,
-      takmir_name: 'H. Ahmad Fauzi, S.Ag.',
-      takmir_phone: '081234567890',
-      image_url: '/images/baiturrahman.jpg',
-      routine_info: 'Kajian rutin Fiqih dan Tematik setiap malam Ahad dan Ahad Subuh.',
-    }
+    (mosques.length > 0 ? mosques[0] : null)
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -47,8 +36,24 @@ export default async function TakmirMasjidPage() {
         </p>
       </div>
 
-      {/* Mosque Edit Form */}
-      <MosqueForm mosque={defaultMosque} />
+      {/* Mosque Edit Form or Empty State */}
+      {defaultMosque ? (
+        <MosqueForm mosque={defaultMosque} />
+      ) : (
+        <div className="bg-[#FBF8F2] border border-[#DDD4C5] rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-2xs">
+          <div className="w-12 h-12 rounded-full bg-[#EFE7DC] text-[#6B5B49] flex items-center justify-center mx-auto">
+            <Landmark className="w-6 h-6" />
+          </div>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="text-base sm:text-lg font-bold text-[#24332B]">
+              Belum Ada Masjid yang Ditugaskan
+            </h3>
+            <p className="text-xs sm:text-sm text-[#5C6D62]">
+              Akun takmir Anda belum terhubung dengan data masjid di database. Silakan hubungi Superadmin untuk menetapkan masjid Anda.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
