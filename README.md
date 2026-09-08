@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LABANAJI (Lare Banyuwangi Demen Ngaji)
 
-## Getting Started
+Platform pusat informasi jadwal dan poster kajian Islam di wilayah Kabupaten Banyuwangi. Ringan, cepat, mobile-first, dan terpercaya.
 
-First, run the development server:
+---
 
+## 🌟 Fitur Utama
+
+- **Kajian Hari Ini**: Pusat informasi utama di halaman depan yang menampilkan jadwal pengajian hari ini secara otomatis.
+- **Carousel Masjid Rutin**: Swipe horizontal di mobile & tombol navigasi desktop untuk masjid-masjid aktif di Banyuwangi.
+- **Pencarian & Filter Lengkap**: Filter kajian berdasarkan tanggal (Hari Ini, Besok, Kalender), nama/lokasi masjid, dan kata kunci pemateri/tema.
+- **Detail Kajian Lengkap**:
+  - Poster resolusi optimal dengan `next/image`
+  - Tombol langsung **Buka Google Maps** menuju lokasi masjid
+  - Tombol **Telepon Langsung** (`tel:`) dan **Chat WhatsApp Takmir** dengan pesan sapaan otomatis
+  - Metadata SEO dinamis & Schema.org `Event` JSON-LD
+- **Direktori Masjid Banyuwangi**: Profil masjid, jadwal kajian rutin, dan daftar kajian terjadwal.
+- **Area Takmir Sederhana**:
+  - Login takmir
+  - Unggah poster kajian (validasi format & ukuran maksimal 5MB)
+  - Formulir tambah, edit, dan hapus jadwal kajian
+- **Arsitektur Cepat & SEO-Ready**:
+  - Server Components (minim client-side JavaScript)
+  - Next.js Image Optimization
+  - `sitemap.xml` dan `robots.txt` otomatis
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js (App Router, Server Components)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Database & Storage**: Supabase (PostgreSQL, Storage Bucket `study-posters`, RLS Security)
+
+---
+
+## 🚀 Panduan Menjalankan Proyek
+
+### 1. Menjalankan Mode Development
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Buka [http://localhost:3000](http://localhost:3000) di browser Anda.
+
+### 2. Build Production
+```bash
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🗄️ Setup Supabase (Database & Storage)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Aplikasi dilengkapi fallback data awal Banyuwangi sehingga dapat langsung berjalan. Untuk menghubungkan ke database Supabase Anda sendiri:
 
-## Learn More
+1. Buat project baru di [Supabase Dashboard](https://supabase.com).
+2. Salin isi file `supabase/schema.sql` lalu jalankan di **Supabase SQL Editor**.
+3. (Opsional) Jalankan isi file `supabase/seed.sql` untuk mengisi data awal masjid & kajian Banyuwangi.
+4. Buat file `.env.local` dari `.env.example`:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000
+   ```
+5. Restart dev server (`npm run dev`). Sistem akan otomatis menggunakan Supabase!
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 👥 Hak Cipta & Komunitas
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Dibuat untuk masyarakat dan jamaah pengajian di Kabupaten Banyuwangi.
+© 2026 LABANAJI — Lare Banyuwangi Demen Ngaji.
